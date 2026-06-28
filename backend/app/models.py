@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 
 class TagConfig(BaseModel):
+    id: int | None = None
     name: str
     description: str
     queries: list[str] = Field(default_factory=list)
@@ -65,6 +66,19 @@ class BriefItem(BaseModel):
     tag: str
     importance_score: int = Field(ge=1, le=5)
 
+    @property
+    def combined_summary(self) -> LocalizedText:
+        return LocalizedText(
+            en=" ".join(part for part in [self.summary.en, self.why_it_matters.en, self.relevance_to_me.en] if part),
+            zh="".join(part for part in [self.summary.zh, self.why_it_matters.zh, self.relevance_to_me.zh] if part),
+            ja="".join(part for part in [self.summary.ja, self.why_it_matters.ja, self.relevance_to_me.ja] if part),
+            ja_ruby=[
+                *self.summary.ja_ruby,
+                *self.why_it_matters.ja_ruby,
+                *self.relevance_to_me.ja_ruby,
+            ],
+        )
+
 
 class Brief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -102,3 +116,41 @@ class StockResponse(BaseModel):
     generated_at: str
     source: str
     quotes: list[StockQuote]
+
+
+class GenerateProgress(BaseModel):
+    status: str = "idle"
+    phase: str = "idle"
+    tavily_queries_done: int = 0
+    tavily_queries_total: int = 0
+    tavily_results: int = 0
+    deepseek_candidates: int = 0
+    deepseek_items: int = 0
+    final_items: int = 0
+    message: str = ""
+    updated_at: str = ""
+
+
+class UserPublic(BaseModel):
+    username: str
+    is_authenticated: bool
+    is_demo: bool = False
+
+
+class AuthRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+    password: str = Field(min_length=6, max_length=128)
+
+
+class RegisterRequest(AuthRequest):
+    invite_code: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=6, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+
+
+class TagInput(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=600)

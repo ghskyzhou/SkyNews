@@ -32,6 +32,9 @@ DEEPSEEK_MAX_TOKENS=12000
 DEEPSEEK_MAX_BRIEF_ITEMS=10
 TAVILY_MAX_RESULTS_PER_QUERY=5
 STOCK_PROVIDERS=tencent,yahoo
+REGISTRATION_INVITE_CODE=123456
+SESSION_COOKIE_NAME=skynews_session
+SESSION_DAYS=30
 ```
 
 模式判断：
@@ -105,11 +108,32 @@ TAVILY_MAX_RESULTS_PER_QUERY=5
 
 ## API
 
+- `GET /api/auth/me`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `POST /api/auth/change-password`
 - `GET /api/tags`
+- `POST /api/tags`
+- `PUT /api/tags/{tag_id}`
+- `DELETE /api/tags/{tag_id}`
 - `POST /api/generate-brief`
+- `GET /api/generate-progress`
 - `GET /api/briefs`
 - `GET /api/briefs/{date}`
 - `GET /api/stocks`
+
+## 用户系统
+
+- 未登录时展示 `Sky` 用户的 demo tags 和 brief。
+- 未登录时不会显示 Generate 按钮，`POST /api/generate-brief` 也会返回 `401`。
+- 注册只需要用户名、密码和 `.env` 中的 `REGISTRATION_INVITE_CODE`。
+- 如果 `Sky` 仍是 demo 用户，可以用邀请码注册用户名 `Sky` 来认领它；认领会保留原来的 demo tags 和 brief。
+- 普通新用户默认没有 tags，需要先添加自己想看的 tag 再生成。
+- 登录后点击右上角用户名可以修改密码；密码只保存 hash，不能反查明文。
+- 用户名和密码只允许英文、数字和半角可见符号。
+- 登录后每个用户都有自己的 tags、brief archive 和今日 brief。
+- 每个用户可以新增、编辑、删除自己的 tag 标题和介绍。
 
 ## 产品约束
 

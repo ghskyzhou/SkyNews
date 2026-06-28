@@ -49,6 +49,10 @@ class Settings:
     cors_origins: list[str]
     stock_symbols: list[str]
     stock_providers: list[str]
+    registration_invite_code: str
+    session_cookie_name: str
+    session_days: int
+    session_cookie_secure: bool
 
     @property
     def use_mock(self) -> bool:
@@ -91,6 +95,10 @@ def get_settings() -> Settings:
             for provider in os.getenv("STOCK_PROVIDERS", "tencent,yahoo").split(",")
             if provider.strip()
         ],
+        registration_invite_code=os.getenv("REGISTRATION_INVITE_CODE", "").strip(),
+        session_cookie_name=os.getenv("SESSION_COOKIE_NAME", "skynews_session").strip() or "skynews_session",
+        session_days=_as_int(os.getenv("SESSION_DAYS"), 30),
+        session_cookie_secure=_as_bool(os.getenv("SESSION_COOKIE_SECURE"), default=False),
     )
 
 

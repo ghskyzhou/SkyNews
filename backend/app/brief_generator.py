@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 import httpx
@@ -11,6 +11,7 @@ from .config import Settings
 from .models import Brief, BriefItem, LocalizedText, RubySegment, Source, TagConfig
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
+ProgressCallback = Callable[..., None]
 
 SYSTEM_INSTRUCTIONS = """You are SkyNews, a personal daily briefing assistant.
 Your job is to help the user avoid doomscrolling by producing a small, high-signal brief.
@@ -398,14 +399,23 @@ def _mock_items(tags: list[TagConfig], max_items: int) -> list[BriefItem]:
 
 
 class BriefGenerator:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, progress_callback: ProgressCallback | None = None):
         self.settings = settings
+        self.progress_callback = progress_callback
+
+    def _progress(self, **updates: Any) -> None:
+        if self.progress_callback:
+            self.progress_callback(**updates)
 
     def generate(self, tags: list[TagConfig], max_items: int, target_date: date | None = None) -> Brief:
         today = target_date or date.today()
         capped_max_items = min(max_items, 20)
+        self._progress(status="running", phase="starting")
         if self.settings.use_mock:
-            return self._generate_mock(tags, capped_max_items, today)
+            self._progress(status="running", phase="mock", tavily_queries_done=0, tavily_queries_total=0)
+            brief = self._generate_mock(tags, capped_max_items, today)
+            self._progress(status="running", phase="saving", final_items=len(brief.items), deepseek_items=len(brief.items))
+            return brief
         return self._generate_with_tavily(tags, capped_max_items, today)
 
     def _generate_mock(self, tags: list[TagConfig], max_items: int, target_date: date) -> Brief:
@@ -440,15 +450,29 @@ class BriefGenerator:
 
     def _generate_with_tavily(self, tags: list[TagConfig], max_items: int, target_date: date) -> Brief:
         generated_at = _utc_timestamp()
+        self._progress(status="running", phase="tavily")
         search_results = self._search_tags(tags)
+        self._progress(status="running", phase="tavily", tavily_results=len(search_results))
         if not search_results:
-            return self._generate_mock(tags, max_items, target_date)
+            self._progress(status="running", phase="mock")
+            brief = self._generate_mock(tags, max_items, target_date)
+            self._progress(status="running", phase="saving", final_items=len(brief.items), deepseek_items=len(brief.items))
+            return brief
 
         if not self.settings.deepseek_api_key:
-            return self._generate_from_search_results(search_results, max_items, target_date, generated_at)
+            self._progress(status="running", phase="saving", deepseek_candidates=0)
+            brief = self._generate_from_search_results(search_results, max_items, target_date, generated_at)
+            self._progress(status="running", phase="saving", final_items=len(brief.items))
+            return brief
 
         ai_max_items = max(1, min(max_items, self.settings.deepseek_max_brief_items, len(search_results)))
         candidate_count = min(len(search_results), max(ai_max_items * 2, ai_max_items))
+        self._progress(
+            status="running",
+            phase="deepseek",
+            deepseek_candidates=candidate_count,
+            deepseek_items=0,
+        )
         payload = self._ask_deepseek(
             search_results[:candidate_count],
             tags,
@@ -456,7 +480,12 @@ class BriefGenerator:
             target_date,
             generated_at,
         )
-        return _normalize_payload(
+        self._progress(
+            status="running",
+            phase="saving",
+            deepseek_items=len(payload.get("items", [])),
+        )
+        brief = _normalize_payload(
             payload,
             target_date=target_date,
             generated_at=generated_at,
@@ -464,10 +493,25 @@ class BriefGenerator:
             mode="tavily+deepseek",
             model=self.settings.deepseek_model,
         )
+        self._progress(status="running", phase="saving", final_items=len(brief.items), deepseek_items=len(brief.items))
+        return brief
 
     def _search_tags(self, tags: list[TagConfig]) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         seen_urls: set[str] = set()
+        query_plan: list[tuple[TagConfig, str]] = []
+        for tag in tags:
+            queries = tag.queries or [tag.name]
+            for query in queries[: max(1, self.settings.tavily_max_queries_per_tag)]:
+                query_plan.append((tag, query))
+
+        self._progress(
+            status="running",
+            phase="tavily",
+            tavily_queries_done=0,
+            tavily_queries_total=len(query_plan),
+            tavily_results=0,
+        )
         timeout = httpx.Timeout(self.settings.api_timeout_seconds)
         headers = {
             "Authorization": f"Bearer {self.settings.tavily_api_key}",
@@ -475,43 +519,48 @@ class BriefGenerator:
         }
 
         with httpx.Client(timeout=timeout) as client:
-            for tag in tags:
-                queries = tag.queries or [tag.name]
-                for query in queries[: max(1, self.settings.tavily_max_queries_per_tag)]:
-                    response = client.post(
-                        TAVILY_SEARCH_URL,
-                        headers=headers,
-                        json={
-                            "query": query,
-                            "search_depth": self.settings.tavily_search_depth,
-                            "max_results": max(1, self.settings.tavily_max_results_per_query),
-                            "include_answer": False,
-                            "include_raw_content": False,
-                            "include_images": False,
-                            "time_range": "week",
-                        },
+            for query_index, (tag, query) in enumerate(query_plan, start=1):
+                response = client.post(
+                    TAVILY_SEARCH_URL,
+                    headers=headers,
+                    json={
+                        "query": query,
+                        "search_depth": self.settings.tavily_search_depth,
+                        "max_results": max(1, self.settings.tavily_max_results_per_query),
+                        "include_answer": False,
+                        "include_raw_content": False,
+                        "include_images": False,
+                        "time_range": "week",
+                    },
+                )
+                if response.status_code >= 400:
+                    raise RuntimeError(f"Tavily search failed for '{tag.name}': {response.text[:240]}")
+                payload = response.json()
+                for result in payload.get("results", []):
+                    url = str(result.get("url") or "").strip()
+                    if not url or url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    rows.append(
+                        {
+                            "tag": tag.name,
+                            "tag_description": tag.description,
+                            "personal_context": tag.personal_context,
+                            "title": str(result.get("title") or "Untitled"),
+                            "url": url,
+                            "publisher": _publisher_from_url(url),
+                            "published_at": str(result.get("published_date") or result.get("date") or ""),
+                            "content": str(result.get("content") or "")[:900],
+                            "score": result.get("score"),
+                        }
                     )
-                    if response.status_code >= 400:
-                        raise RuntimeError(f"Tavily search failed for '{tag.name}': {response.text[:240]}")
-                    payload = response.json()
-                    for result in payload.get("results", []):
-                        url = str(result.get("url") or "").strip()
-                        if not url or url in seen_urls:
-                            continue
-                        seen_urls.add(url)
-                        rows.append(
-                            {
-                                "tag": tag.name,
-                                "tag_description": tag.description,
-                                "personal_context": tag.personal_context,
-                                "title": str(result.get("title") or "Untitled"),
-                                "url": url,
-                                "publisher": _publisher_from_url(url),
-                                "published_at": str(result.get("published_date") or result.get("date") or ""),
-                                "content": str(result.get("content") or "")[:900],
-                                "score": result.get("score"),
-                            }
-                        )
+                self._progress(
+                    status="running",
+                    phase="tavily",
+                    tavily_queries_done=query_index,
+                    tavily_queries_total=len(query_plan),
+                    tavily_results=len(rows),
+                )
         return rows
 
     def _ask_deepseek(
