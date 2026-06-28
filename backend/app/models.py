@@ -25,17 +25,10 @@ class Source(BaseModel):
     published_at: str = ""
 
 
-class RubySegment(BaseModel):
-    text: str
-    rt: str = ""
-    kind: str = "plain"
-
-
 class LocalizedText(BaseModel):
     en: str = ""
     zh: str = ""
     ja: str = ""
-    ja_ruby: list[RubySegment] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -43,18 +36,13 @@ class LocalizedText(BaseModel):
         if isinstance(value, cls):
             return value.model_dump()
         if isinstance(value, str):
-            return {"en": value, "zh": value, "ja": value, "ja_ruby": []}
+            return {"en": value, "zh": value, "ja": value}
         if isinstance(value, dict):
             en = str(value.get("en") or value.get("english") or "")
             zh = str(value.get("zh") or value.get("chinese") or en)
             ja = str(value.get("ja") or value.get("japanese") or en)
-            return {
-                "en": en,
-                "zh": zh,
-                "ja": ja,
-                "ja_ruby": value.get("ja_ruby") or value.get("ruby") or [],
-            }
-        return {"en": "", "zh": "", "ja": "", "ja_ruby": []}
+            return {"en": en, "zh": zh, "ja": ja}
+        return {"en": "", "zh": "", "ja": ""}
 
 
 class BriefItem(BaseModel):
@@ -72,11 +60,6 @@ class BriefItem(BaseModel):
             en=" ".join(part for part in [self.summary.en, self.why_it_matters.en, self.relevance_to_me.en] if part),
             zh="".join(part for part in [self.summary.zh, self.why_it_matters.zh, self.relevance_to_me.zh] if part),
             ja="".join(part for part in [self.summary.ja, self.why_it_matters.ja, self.relevance_to_me.ja] if part),
-            ja_ruby=[
-                *self.summary.ja_ruby,
-                *self.why_it_matters.ja_ruby,
-                *self.relevance_to_me.ja_ruby,
-            ],
         )
 
 

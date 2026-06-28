@@ -21,22 +21,6 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
-ruby.ruby-segment {
-  ruby-align: center;
-  ruby-position: over;
-}
-
-ruby.ruby-segment rt {
-  font-size: 0.5em;
-  font-weight: 400;
-  line-height: 1;
-  color: #71717a;
-}
-
-.dark ruby.ruby-segment rt {
-  color: #a1a1aa;
-}
-
 @layer components {
   .panel {
     @apply rounded-lg border border-stone-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950;

@@ -96,7 +96,7 @@ http://192.168.1.23:8008
 
 ## 真实生成的稳定性
 
-日语 ruby 注音会显著增加 DeepSeek 输出长度。为了避免模型输出 JSON 被截断，默认真实模式最多让 DeepSeek 生成 10 条 brief：
+SkyNews 现在只生成普通中英日三语文本，不再生成日语注音。为了避免模型输出 JSON 被截断，默认真实模式最多让 DeepSeek 生成 10 条 brief：
 
 ```env
 DEEPSEEK_MAX_BRIEF_ITEMS=10

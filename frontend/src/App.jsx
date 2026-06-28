@@ -224,28 +224,7 @@ function textOf(value, language) {
   return value[language] || value.en || value.zh || value.ja || "";
 }
 
-function hasRuby(value) {
-  return value && typeof value === "object" && Array.isArray(value.ja_ruby) && value.ja_ruby.length > 0;
-}
-
 function LocalizedText({ value, language, as: Component = "span", className = "" }) {
-  if (language === "ja" && hasRuby(value)) {
-    return (
-      <Component className={className}>
-        {value.ja_ruby.map((segment, index) => {
-          const key = `${segment.text}-${segment.rt}-${index}`;
-          if (!segment.rt) return <span key={key}>{segment.text}</span>;
-          return (
-            <ruby key={key} className={`ruby-segment ruby-${segment.kind || "plain"}`}>
-              {segment.text}
-              <rt>{segment.rt}</rt>
-            </ruby>
-          );
-        })}
-      </Component>
-    );
-  }
-
   return <Component className={className}>{textOf(value, language)}</Component>;
 }
 

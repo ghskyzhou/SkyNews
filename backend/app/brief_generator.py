@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import httpx
 
 from .config import Settings
-from .models import Brief, BriefItem, LocalizedText, RubySegment, Source, TagConfig
+from .models import Brief, BriefItem, LocalizedText, Source, TagConfig
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 ProgressCallback = Callable[..., None]
@@ -25,184 +25,12 @@ def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _ruby(text: str, rt: str = "", kind: str = "plain") -> RubySegment:
-    return RubySegment(text=text, rt=rt, kind=kind)
-
-
-MOCK_RUBY_TERMS: dict[str, tuple[str, str]] = {
-    "コーディング": ("coding", "loanword"),
-    "ツール": ("tool", "loanword"),
-    "レビュー": ("review", "loanword"),
-    "ワークフロー": ("workflow", "loanword"),
-    "モック": ("mock", "loanword"),
-    "ブリーフ": ("brief", "loanword"),
-    "キー": ("key", "loanword"),
-    "ライブ": ("live", "loanword"),
-    "データ": ("data", "loanword"),
-    "ビザ": ("visa", "loanword"),
-    "マーケット": ("market", "loanword"),
-    "フィード": ("feed", "loanword"),
-    "ページ": ("page", "loanword"),
-    "タグ": ("tag", "loanword"),
-    "アプリ": ("app", "loanword"),
-    "スクロール": ("scroll", "loanword"),
-    "サービス": ("service", "loanword"),
-    "モード": ("mode", "loanword"),
-    "クレジット": ("credit", "loanword"),
-    "バブル": ("bubble", "loanword"),
-    "リスク": ("risk", "loanword"),
-    "使わず": ("つかわず", "kanji"),
-    "使えます": ("つかえます", "kanji"),
-    "示して": ("しめして", "kanji"),
-    "処理": ("しょり", "kanji"),
-    "三言語": ("さんげんご", "kanji"),
-    "作ります": ("つくります", "kanji"),
-    "有料": ("ゆうりょう", "kanji"),
-    "接続": ("せつぞく", "kanji"),
-    "前": ("まえ", "kanji"),
-    "依存": ("いぞん", "kanji"),
-    "調整": ("ちょうせい", "kanji"),
-    "上限付き": ("じょうげんつき", "kanji"),
-    "上限": ("じょうげん", "kanji"),
-    "日次": ("にちじ", "kanji"),
-    "再生成": ("さいせいせい", "kanji"),
-    "現在": ("げんざい", "kanji"),
-    "模擬": ("もぎ", "kanji"),
-    "形式": ("けいしき", "kanji"),
-    "構造": ("こうぞう", "kanji"),
-    "実際": ("じっさい", "kanji"),
-    "検索": ("けんさく", "kanji"),
-    "翻訳": ("ほんやく", "kanji"),
-    "生成": ("せいせい", "kanji"),
-    "要約": ("ようやく", "kanji"),
-    "使用": ("しよう", "kanji"),
-    "確認": ("かくにん", "kanji"),
-    "追加": ("ついか", "kanji"),
-    "有効": ("ゆうこう", "kanji"),
-    "情報": ("じょうほう", "kanji"),
-    "重要": ("じゅうよう", "kanji"),
-    "関連": ("かんれん", "kanji"),
-    "日本": ("にほん", "kanji"),
-    "東京": ("とうきょう", "kanji"),
-    "計画": ("けいかく", "kanji"),
-    "落ち着いた": ("おちついた", "kanji"),
-    "公式": ("こうしき", "kanji"),
-    "優先": ("ゆうせん", "kanji"),
-    "実用": ("じつよう", "kanji"),
-    "向いて": ("むいて", "kanji"),
-    "版": ("ばん", "kanji"),
-    "曖昧": ("あいまい", "kanji"),
-    "移住談": ("いじゅうだん", "kanji"),
-    "移住": ("いじゅう", "kanji"),
-    "報道": ("ほうどう", "kanji"),
-    "細部": ("さいぶ", "kanji"),
-    "詳細": ("しょうさい", "kanji"),
-    "時期": ("じき", "kanji"),
-    "時間": ("じかん", "kanji"),
-    "資格": ("しかく", "kanji"),
-    "現実": ("げんじつ", "kanji"),
-    "働き方": ("はたらきかた", "kanji"),
-    "影響": ("えいきょう", "kanji"),
-    "仕事": ("しごと", "kanji"),
-    "方法": ("ほうほう", "kanji"),
-    "終わり": ("おわり", "kanji"),
-    "収集": ("しゅうしゅう", "kanji"),
-    "市場": ("しじょう", "kanji"),
-    "投資": ("とうし", "kanji"),
-    "事実": ("じじつ", "kanji"),
-    "話題": ("わだい", "kanji"),
-    "漠然": ("ばくぜん", "kanji"),
-    "論": ("ろん", "kanji"),
-    "決算": ("けっさん", "kanji"),
-    "支出": ("ししゅつ", "kanji"),
-    "過熱": ("かねつ", "kanji"),
-    "財務": ("ざいむ", "kanji"),
-    "設備": ("せつび", "kanji"),
-    "評価": ("ひょうか", "kanji"),
-    "指数": ("しすう", "kanji"),
-    "変化": ("へんか", "kanji"),
-    "認識": ("にんしき", "kanji"),
-    "一部": ("いちぶ", "kanji"),
-    "大型株": ("おおがたかぶ", "kanji"),
-    "大きく": ("おおきく", "kanji"),
-    "下部": ("かぶ", "kanji"),
-    "欄": ("らん", "kanji"),
-    "簡単": ("かんたん", "kanji"),
-    "株価": ("かぶか", "kanji"),
-    "毎日": ("まいにち", "kanji"),
-    "研究": ("けんきゅう", "kanji"),
-    "項目": ("こうもく", "kanji"),
-    "価値": ("かち", "kanji"),
-    "選ぶ": ("えらぶ", "kanji"),
-    "新しさ": ("あたらしさ", "kanji"),
-    "手がかり": ("てがかり", "kanji"),
-    "保ち": ("たもち", "kanji"),
-    "付ける": ("つける", "kanji"),
-    "設計": ("せっけい", "kanji"),
-    "論文": ("ろんぶん", "kanji"),
-    "発表": ("はっぴょう", "kanji"),
-    "読書": ("どくしょ", "kanji"),
-    "読む": ("よむ", "kanji"),
-    "意図": ("いと", "kanji"),
-    "支える": ("ささえる", "kanji"),
-    "支えます": ("ささえます", "kanji"),
-    "有限": ("ゆうげん", "kanji"),
-    "出典": ("しゅってん", "kanji"),
-    "判断": ("はんだん", "kanji"),
-    "深く": ("ふかく", "kanji"),
-    "流し見": ("ながしみ", "kanji"),
-    "読むべき": ("よむべき", "kanji"),
-    "見る": ("みる", "kanji"),
-    "見ます": ("みます", "kanji"),
-    "分ける": ("わける", "kanji"),
-    "的": ("てき", "kanji"),
-    "動き": ("うごき", "kanji"),
-    "左右": ("さゆう", "kanji"),
-    "可能性": ("かのうせい", "kanji"),
-}
-
-
-MOCK_RUBY_KEYS = sorted(MOCK_RUBY_TERMS, key=len, reverse=True)
-
-
-def _mock_ruby_from_text(text: str) -> list[RubySegment]:
-    segments: list[RubySegment] = []
-    plain_buffer: list[str] = []
-    index = 0
-
-    def flush_plain() -> None:
-        if plain_buffer:
-            segments.append(_ruby("".join(plain_buffer)))
-            plain_buffer.clear()
-
-    while index < len(text):
-        match = next((key for key in MOCK_RUBY_KEYS if text.startswith(key, index)), None)
-        if match:
-            flush_plain()
-            rt, kind = MOCK_RUBY_TERMS[match]
-            segments.append(_ruby(match, rt, kind))
-            index += len(match)
-            continue
-        plain_buffer.append(text[index])
-        index += 1
-
-    flush_plain()
-    return segments
-
-
 def _localized(
     en: str,
     zh: str | None = None,
     ja: str | None = None,
-    ja_ruby: list[RubySegment | dict[str, str]] | None = None,
 ) -> LocalizedText:
-    ja_text = ja or en
-    return LocalizedText(
-        en=en,
-        zh=zh or en,
-        ja=ja_text,
-        ja_ruby=ja_ruby or _mock_ruby_from_text(ja_text),
-    )
+    return LocalizedText(en=en, zh=zh or en, ja=ja or en)
 
 
 def _publisher_from_url(url: str) -> str:
@@ -220,7 +48,7 @@ def _parse_json_payload(text: str) -> dict[str, Any]:
         return json.loads(cleaned)
     except json.JSONDecodeError as exc:
         raise RuntimeError(
-            "DeepSeek returned incomplete JSON. This usually means the multilingual ruby output was too long. "
+            "DeepSeek returned incomplete JSON. This usually means the multilingual output was too long. "
             "Try lowering DEEPSEEK_MAX_BRIEF_ITEMS or increasing DEEPSEEK_MAX_TOKENS."
         ) from exc
 
@@ -263,20 +91,6 @@ def _mock_items(tags: list[TagConfig], max_items: int) -> list[BriefItem]:
                 "AI coding tools are moving toward review-and-repair workflows",
                 "AI 编程工具正在转向审查与修复工作流",
                 "AI コーディングツールはレビューと修正のワークフローへ移行しています",
-                [
-                    _ruby("AI ", kind="plain"),
-                    _ruby("コーディング", "coding", "loanword"),
-                    _ruby("ツール", "tool", "loanword"),
-                    _ruby("は", kind="plain"),
-                    _ruby("レビュー", "review", "loanword"),
-                    _ruby("と", kind="plain"),
-                    _ruby("修正", "しゅうせい", "kanji"),
-                    _ruby("の", kind="plain"),
-                    _ruby("ワークフロー", "workflow", "loanword"),
-                    _ruby("へ", kind="plain"),
-                    _ruby("移行", "いこう", "kanji"),
-                    _ruby("しています", kind="plain"),
-                ],
             ),
             _localized(
                 "Mock mode is active, so this item shows the intended shape without spending API credits. The real path will use Tavily for search and DeepSeek for multilingual summarization.",
@@ -428,22 +242,6 @@ class BriefGenerator:
                 "Mock brief is ready; add Tavily and DeepSeek keys to enable live search and translation.",
                 "Mock 简报已生成；添加 Tavily 和 DeepSeek key 后即可启用实时搜索和翻译。",
                 "モックブリーフができました。Tavily と DeepSeek のキーを追加すると、ライブ検索と翻訳が有効になります。",
-                [
-                    _ruby("モック", "mock", "loanword"),
-                    _ruby("ブリーフ", "brief", "loanword"),
-                    _ruby("ができました。Tavily と DeepSeek の", kind="plain"),
-                    _ruby("キー", "key", "loanword"),
-                    _ruby("を", kind="plain"),
-                    _ruby("追加", "ついか", "kanji"),
-                    _ruby("すると、", kind="plain"),
-                    _ruby("ライブ", "live", "loanword"),
-                    _ruby("検索", "けんさく", "kanji"),
-                    _ruby("と", kind="plain"),
-                    _ruby("翻訳", "ほんやく", "kanji"),
-                    _ruby("が", kind="plain"),
-                    _ruby("有効", "ゆうこう", "kanji"),
-                    _ruby("になります。", kind="plain"),
-                ],
             ),
             items=_mock_items(tags, max_items),
         )
@@ -584,16 +382,6 @@ class BriefGenerator:
                 "zh": "natural Simplified Chinese",
                 "ja": "natural Japanese",
             },
-            "japanese_ruby_requirements": [
-                "Every localized text object must include en, zh, ja, and ja_ruby.",
-                "ja must be plain Japanese text without HTML.",
-                "ja_ruby must be an array of segments that recreates the ja text in order.",
-                "For every segment containing kanji, set rt to the correct hiragana reading in context. Use kun-yomi or on-yomi correctly based on the sentence.",
-                "For katakana loanwords or common tech terms, set rt to a short English gloss such as coding, review, workflow, API, search, or market.",
-                "For plain kana, punctuation, spaces, numbers, and Latin ticker symbols, use kind='plain' and rt=''.",
-                "Allowed segment shape: {'text': string, 'rt': string, 'kind': 'plain' | 'kanji' | 'loanword' | 'term'}.",
-                "Do not use HTML, markdown, or parentheses for furigana.",
-            ],
             "required_shape": {
                 "date": "YYYY-MM-DD",
                 "generated_at": "UTC ISO timestamp",
@@ -601,7 +389,6 @@ class BriefGenerator:
                     "en": "",
                     "zh": "",
                     "ja": "",
-                    "ja_ruby": [{"text": "", "rt": "", "kind": "plain"}],
                 },
                 "items": [
                     {
@@ -609,25 +396,21 @@ class BriefGenerator:
                             "en": "",
                             "zh": "",
                             "ja": "",
-                            "ja_ruby": [{"text": "", "rt": "", "kind": "plain"}],
                         },
                         "summary": {
                             "en": "",
                             "zh": "",
                             "ja": "",
-                            "ja_ruby": [{"text": "", "rt": "", "kind": "plain"}],
                         },
                         "why_it_matters": {
                             "en": "",
                             "zh": "",
                             "ja": "",
-                            "ja_ruby": [{"text": "", "rt": "", "kind": "plain"}],
                         },
                         "relevance_to_me": {
                             "en": "",
                             "zh": "",
                             "ja": "",
-                            "ja_ruby": [{"text": "", "rt": "", "kind": "plain"}],
                         },
                         "sources": [
                             {
