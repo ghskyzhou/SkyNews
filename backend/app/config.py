@@ -48,6 +48,7 @@ class Settings:
     db_path: Path
     cors_origins: list[str]
     stock_symbols: list[str]
+    stock_providers: list[str]
 
     @property
     def use_mock(self) -> bool:
@@ -70,12 +71,12 @@ def get_settings() -> Settings:
         tavily_api_key=os.getenv("TAVILY_API_KEY", "").strip(),
         tavily_search_depth=os.getenv("TAVILY_SEARCH_DEPTH", "basic").strip() or "basic",
         tavily_max_queries_per_tag=_as_int(os.getenv("TAVILY_MAX_QUERIES_PER_TAG"), 1),
-        tavily_max_results_per_query=_as_int(os.getenv("TAVILY_MAX_RESULTS_PER_QUERY"), 3),
+        tavily_max_results_per_query=_as_int(os.getenv("TAVILY_MAX_RESULTS_PER_QUERY"), 5),
         deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", "").strip(),
         deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").strip().rstrip("/"),
         deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash").strip() or "deepseek-v4-flash",
         deepseek_max_tokens=_as_int(os.getenv("DEEPSEEK_MAX_TOKENS"), 12000),
-        deepseek_max_brief_items=_as_int(os.getenv("DEEPSEEK_MAX_BRIEF_ITEMS"), 8),
+        deepseek_max_brief_items=_as_int(os.getenv("DEEPSEEK_MAX_BRIEF_ITEMS"), 10),
         api_timeout_seconds=_as_int(os.getenv("API_TIMEOUT_SECONDS"), 90),
         mock_mode=_as_bool(os.getenv("MOCK_MODE"), default=False),
         db_path=Path(db_path_value) if db_path_value else DATA_DIR / "skynews.db",
@@ -84,6 +85,11 @@ def get_settings() -> Settings:
             symbol.strip().upper()
             for symbol in os.getenv("STOCK_SYMBOLS", "QQQ,VOO,DRAM,MU,NVDA").split(",")
             if symbol.strip()
+        ],
+        stock_providers=[
+            provider.strip().lower()
+            for provider in os.getenv("STOCK_PROVIDERS", "tencent,yahoo").split(",")
+            if provider.strip()
         ],
     )
 

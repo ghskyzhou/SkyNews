@@ -9,7 +9,7 @@ SkyNews 是一个个人每日简报应用：它不是无限新闻流，而是按
 - 数据库：SQLite
 - 搜索：Tavily Search API
 - 总结/翻译：DeepSeek API
-- 股票行情：Yahoo Finance chart JSON endpoint
+- 股票行情：腾讯美股接口，Yahoo Finance chart JSON endpoint 作为备用
 - 本地开发端口：后端 `8007`，前端 `8008`
 
 ## 后端运行
@@ -29,7 +29,9 @@ TAVILY_API_KEY=tvly-...
 DEEPSEEK_API_KEY=sk-...
 MOCK_MODE=false
 DEEPSEEK_MAX_TOKENS=12000
-DEEPSEEK_MAX_BRIEF_ITEMS=8
+DEEPSEEK_MAX_BRIEF_ITEMS=10
+TAVILY_MAX_RESULTS_PER_QUERY=5
+STOCK_PROVIDERS=tencent,yahoo
 ```
 
 模式判断：
@@ -91,11 +93,12 @@ http://192.168.1.23:8008
 
 ## 真实生成的稳定性
 
-日语 ruby 注音会显著增加 DeepSeek 输出长度。为了避免模型输出 JSON 被截断，默认真实模式最多让 DeepSeek 生成 8 条 brief：
+日语 ruby 注音会显著增加 DeepSeek 输出长度。为了避免模型输出 JSON 被截断，默认真实模式最多让 DeepSeek 生成 10 条 brief：
 
 ```env
-DEEPSEEK_MAX_BRIEF_ITEMS=8
+DEEPSEEK_MAX_BRIEF_ITEMS=10
 DEEPSEEK_MAX_TOKENS=12000
+TAVILY_MAX_RESULTS_PER_QUERY=5
 ```
 
 这仍然满足产品规则“每日 brief 最多 20 条”。如果想更多条，可以逐步调高 `DEEPSEEK_MAX_BRIEF_ITEMS`，但输出越长越容易被截断、成本也更高。

@@ -448,8 +448,9 @@ class BriefGenerator:
             return self._generate_from_search_results(search_results, max_items, target_date, generated_at)
 
         ai_max_items = max(1, min(max_items, self.settings.deepseek_max_brief_items, len(search_results)))
+        candidate_count = min(len(search_results), max(ai_max_items * 2, ai_max_items))
         payload = self._ask_deepseek(
-            search_results[:ai_max_items],
+            search_results[:candidate_count],
             tags,
             ai_max_items,
             target_date,
@@ -527,6 +528,7 @@ class BriefGenerator:
             "date": target_date.isoformat(),
             "generated_at": generated_at,
             "max_items": max_items,
+            "target_item_count": max_items,
             "allowed_tags": tag_names,
             "language_requirements": {
                 "en": "natural English",
@@ -593,7 +595,10 @@ class BriefGenerator:
             },
             "rules": [
                 "Use only source URLs from search_results.",
-                f"Return no more than {max_items} items.",
+                f"Return exactly {max_items} items when at least {max_items} search_results are useful.",
+                "If fewer sources are useful, return as many useful items as possible.",
+                "Do not collapse the brief to one item unless only one search_result is useful.",
+                "Distribute items across different allowed tags when the source quality allows it.",
                 "Prefer primary sources, reputable reporting, official pages, papers, and data.",
                 "Avoid duplicate, sensational, vague, or low-value stories.",
                 "Keep each title, summary, why_it_matters, and relevance_to_me concise.",
