@@ -1,0 +1,45 @@
+{
+  "max_items_per_brief": 20,
+  "tags": [
+    {
+      "name": "AI Coding",
+      "description": "AI coding tools, agentic development workflows, IDE assistants, code review automation, and practical developer productivity.",
+      "queries": [
+        "AI coding agents developer productivity",
+        "OpenAI Codex GitHub Copilot Cursor Claude Code updates",
+        "software engineering AI code review evaluation"
+      ],
+      "personal_context": "I care about practical tools and engineering workflows that help me build better software without hype."
+    },
+    {
+      "name": "Japan / Tokyo / Visa",
+      "description": "Japan immigration, Tokyo life, visa policy, skilled worker paths, startup paths, and practical relocation details.",
+      "queries": [
+        "Japan visa policy Tokyo skilled worker digital nomad",
+        "Japan immigration services agency visa update",
+        "Tokyo relocation foreign workers visa"
+      ],
+      "personal_context": "I want useful information for planning Japan/Tokyo options, especially visa and daily-life implications."
+    },
+    {
+      "name": "US Markets / AI Bubble",
+      "description": "US equity markets, AI infrastructure spending, valuation risk, earnings quality, macro conditions, and bubble arguments with data.",
+      "queries": [
+        "US markets AI bubble capex earnings valuation",
+        "AI infrastructure spending semiconductor cloud earnings",
+        "Federal Reserve rates technology stocks AI"
+      ],
+      "personal_context": "I want market signal without panic, especially where AI spending, profits, and valuation risk intersect."
+    },
+    {
+      "name": "CS / Research",
+      "description": "Computer science research, machine learning systems, programming languages, databases, security, evaluation, and notable papers.",
+      "queries": [
+        "computer science research notable papers machine learning systems",
+        "arXiv computer science programming languages systems security",
+        "ML evaluation reproducibility benchmarks research"
+      ],
+      "personal_context": "I want research leads worth reading deeply, not a stream of shallow paper announcements."
+    }
+  ]
+}

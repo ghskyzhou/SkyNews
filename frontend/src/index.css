@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f7f7f4;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+ruby.ruby-segment {
+  ruby-align: center;
+  ruby-position: over;
+}
+
+ruby.ruby-segment rt {
+  font-size: 0.5em;
+  font-weight: 400;
+  line-height: 1;
+  color: #71717a;
+}
+
+.dark ruby.ruby-segment rt {
+  color: #a1a1aa;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-lg border border-stone-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950;
+  }
+
+  .icon-button {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-lg border border-stone-200 bg-white text-zinc-700 transition hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-teal-700 dark:hover:text-teal-300;
+  }
+
+  .primary-button {
+    @apply inline-flex h-10 items-center gap-2 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-teal-500 dark:text-zinc-950 dark:hover:bg-teal-400;
+  }
+
+  .tab-button {
+    @apply inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-zinc-600 transition hover:bg-stone-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-white;
+  }
+
+  .tab-button-active {
+    @apply bg-zinc-950 text-white hover:bg-zinc-900 hover:text-white dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-100;
+  }
+}
