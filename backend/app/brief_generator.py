@@ -215,7 +215,13 @@ def _parse_json_payload(text: str) -> dict[str, Any]:
         cleaned = cleaned.strip("`")
         if cleaned.lower().startswith("json"):
             cleaned = cleaned[4:].strip()
-    return json.loads(cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "DeepSeek returned incomplete JSON. This usually means the multilingual ruby output was too long. "
+            "Try lowering DEEPSEEK_MAX_BRIEF_ITEMS or increasing DEEPSEEK_MAX_TOKENS."
+        ) from exc
 
 
 def _normalize_payload(
@@ -441,12 +447,19 @@ class BriefGenerator:
         if not self.settings.deepseek_api_key:
             return self._generate_from_search_results(search_results, max_items, target_date, generated_at)
 
-        payload = self._ask_deepseek(search_results, tags, max_items, target_date, generated_at)
+        ai_max_items = max(1, min(max_items, self.settings.deepseek_max_brief_items, len(search_results)))
+        payload = self._ask_deepseek(
+            search_results[:ai_max_items],
+            tags,
+            ai_max_items,
+            target_date,
+            generated_at,
+        )
         return _normalize_payload(
             payload,
             target_date=target_date,
             generated_at=generated_at,
-            max_items=max_items,
+            max_items=ai_max_items,
             mode="tavily+deepseek",
             model=self.settings.deepseek_model,
         )
@@ -580,10 +593,13 @@ class BriefGenerator:
             },
             "rules": [
                 "Use only source URLs from search_results.",
-                "Do not include more than 20 items.",
+                f"Return no more than {max_items} items.",
                 "Prefer primary sources, reputable reporting, official pages, papers, and data.",
                 "Avoid duplicate, sensational, vague, or low-value stories.",
-                "Keep each summary concise.",
+                "Keep each title, summary, why_it_matters, and relevance_to_me concise.",
+                "Each English text should usually be one sentence.",
+                "Each Chinese text should usually be under 80 Chinese characters.",
+                "Each Japanese text should usually be under 100 Japanese characters.",
                 "Return JSON only. No markdown fences.",
             ],
             "search_results": search_results,
@@ -612,7 +628,13 @@ class BriefGenerator:
             raise RuntimeError(f"DeepSeek brief generation failed: {response.text[:240]}")
 
         data = response.json()
-        content = data["choices"][0]["message"]["content"]
+        choice = data["choices"][0]
+        content = choice["message"]["content"]
+        if choice.get("finish_reason") == "length":
+            raise RuntimeError(
+                "DeepSeek response was truncated because the output was too long. "
+                "Lower DEEPSEEK_MAX_BRIEF_ITEMS or increase DEEPSEEK_MAX_TOKENS."
+            )
         return _parse_json_payload(content)
 
     def _generate_from_search_results(

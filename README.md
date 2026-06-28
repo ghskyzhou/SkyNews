@@ -2,7 +2,7 @@
 
 SkyNews 是一个个人每日简报应用：它不是无限新闻流，而是按你关心的主题搜索、过滤、总结，并生成最多 20 条高信号信息。
 
-## 当前技术路线
+## 技术路线
 
 - 后端：Python + FastAPI
 - 前端：React + Vite + Tailwind CSS
@@ -10,66 +10,95 @@ SkyNews 是一个个人每日简报应用：它不是无限新闻流，而是按
 - 搜索：Tavily Search API
 - 总结/翻译：DeepSeek API
 - 股票行情：Yahoo Finance chart JSON endpoint
-- 配置：后端 `.env`
-
-## 项目结构
-
-```text
-SkyNews/
-  backend/
-    app/
-      main.py              # FastAPI 入口
-      brief_generator.py   # Tavily + DeepSeek / mock 简报生成
-      stocks.py            # 股票行情
-      database.py          # SQLite 读写
-      models.py            # Pydantic 数据模型
-      schema.sql           # 数据库 schema
-      config.py            # .env 与 topics 配置
-    config/topics.json     # 标签/主题配置
-    data/                  # 本地 SQLite 数据库目录
-    .env.example
-    requirements.txt
-  frontend/
-    src/
-      App.jsx
-      api.js
-      main.jsx
-      index.css
-    package.json
-```
+- 本地开发端口：后端 `8007`，前端 `8008`
 
 ## 后端运行
 
+Windows 推荐这样启动，不依赖 `uvicorn` 是否在 PATH 里：
+
 ```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+cd S:\Codes\Web\SkyNews\backend
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8007
 ```
 
-如果 `backend/.env` 里的 `TAVILY_API_KEY` 为空，后端会自动进入 mock 模式。  
-如果只设置 `TAVILY_API_KEY`，会进入 `tavily-only` 模式，展示搜索结果片段但不做 DeepSeek 三语整理。  
-如果同时设置 `TAVILY_API_KEY` 和 `DEEPSEEK_API_KEY`，会进入 `tavily+deepseek` 模式。
+`backend\.env` 示例：
 
 ```env
 TAVILY_API_KEY=tvly-...
 DEEPSEEK_API_KEY=sk-...
 MOCK_MODE=false
+DEEPSEEK_MAX_TOKENS=12000
+DEEPSEEK_MAX_BRIEF_ITEMS=8
+```
+
+模式判断：
+
+- 没有 `TAVILY_API_KEY`：`mock`
+- 有 `TAVILY_API_KEY`，没有 `DEEPSEEK_API_KEY`：`tavily-only`
+- 两个 key 都有，且 `MOCK_MODE=false`：`tavily+deepseek`
+
+检查：
+
+```text
+http://127.0.0.1:8007/api/health
 ```
 
 ## 前端运行
 
 ```powershell
-cd frontend
-npm install
-npm run dev
+cd S:\Codes\Web\SkyNews\frontend
+npm.cmd install
+npm.cmd run dev
 ```
 
-如果 PowerShell 因执行策略拦截 `npm.ps1`，把上面的命令换成 `npm.cmd install` 和 `npm.cmd run dev`。
+前端默认启动在：
 
-打开 Vite 输出的本地地址，通常是 [http://127.0.0.1:5173](http://127.0.0.1:5173)。前端通过 Vite proxy 调用 `http://127.0.0.1:8000/api/*`，不会读取或暴露任何 API key。
+```text
+http://127.0.0.1:8008
+```
+
+Vite 会把 `/api/*` 代理到后端：
+
+```text
+http://127.0.0.1:8007
+```
+
+## 局域网手机访问
+
+1. 电脑和手机连同一个 Wi-Fi。
+2. 在 Windows 上查电脑局域网 IP：
+
+```powershell
+ipconfig
+```
+
+找类似 `192.168.x.x` 的 IPv4 地址。
+
+3. 手机浏览器打开：
+
+```text
+http://你的电脑IP:8008
+```
+
+例如：
+
+```text
+http://192.168.1.23:8008
+```
+
+如果打不开，检查 Windows 防火墙是否允许 Node.js / Python 的专用网络访问。
+
+## 真实生成的稳定性
+
+日语 ruby 注音会显著增加 DeepSeek 输出长度。为了避免模型输出 JSON 被截断，默认真实模式最多让 DeepSeek 生成 8 条 brief：
+
+```env
+DEEPSEEK_MAX_BRIEF_ITEMS=8
+DEEPSEEK_MAX_TOKENS=12000
+```
+
+这仍然满足产品规则“每日 brief 最多 20 条”。如果想更多条，可以逐步调高 `DEEPSEEK_MAX_BRIEF_ITEMS`，但输出越长越容易被截断、成本也更高。
 
 ## API
 
@@ -78,42 +107,6 @@ npm run dev
 - `GET /api/briefs`
 - `GET /api/briefs/{date}`
 - `GET /api/stocks`
-
-## 多语言
-
-每条简报的 `headline`、`title`、`summary`、`why_it_matters`、`relevance_to_me` 都是三语对象：
-
-```json
-{
-  "en": "English text",
-  "zh": "中文文本",
-  "ja": "日本語テキスト"
-}
-```
-
-前端支持中文、英文、日语切换。
-
-日语模式支持 ruby 注音。DeepSeek 会在 `ja_ruby` 中返回结构化片段，前端用 `<ruby><rt>` 渲染：
-
-- 汉字使用平假名读音，要求按上下文区分训读和音读
-- 外来语和常见技术词可以用简短英文释义标注
-- 旧数据没有 `ja_ruby` 时会退回普通 `ja` 文本
-
-## 主题配置
-
-编辑 `backend/config/topics.json` 可以调整标签、搜索方向和个人相关性提示。每次生成 brief 时后端都会读取该配置。
-
-## 股票监测
-
-默认监测：
-
-- QQQ
-- VOO
-- DRAM
-- MU
-- NVDA
-
-可以在 `backend/.env` 中通过 `STOCK_SYMBOLS=QQQ,VOO,DRAM,MU,NVDA` 修改。
 
 ## 产品约束
 

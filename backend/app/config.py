@@ -42,6 +42,7 @@ class Settings:
     deepseek_base_url: str
     deepseek_model: str
     deepseek_max_tokens: int
+    deepseek_max_brief_items: int
     api_timeout_seconds: int
     mock_mode: bool
     db_path: Path
@@ -60,7 +61,7 @@ def get_settings() -> Settings:
         origin.strip()
         for origin in os.getenv(
             "CORS_ORIGINS",
-            "http://127.0.0.1:5173,http://localhost:5173",
+            "http://127.0.0.1:8008,http://localhost:8008",
         ).split(",")
         if origin.strip()
     ]
@@ -73,7 +74,8 @@ def get_settings() -> Settings:
         deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", "").strip(),
         deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").strip().rstrip("/"),
         deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash").strip() or "deepseek-v4-flash",
-        deepseek_max_tokens=_as_int(os.getenv("DEEPSEEK_MAX_TOKENS"), 8000),
+        deepseek_max_tokens=_as_int(os.getenv("DEEPSEEK_MAX_TOKENS"), 12000),
+        deepseek_max_brief_items=_as_int(os.getenv("DEEPSEEK_MAX_BRIEF_ITEMS"), 8),
         api_timeout_seconds=_as_int(os.getenv("API_TIMEOUT_SECONDS"), 90),
         mock_mode=_as_bool(os.getenv("MOCK_MODE"), default=False),
         db_path=Path(db_path_value) if db_path_value else DATA_DIR / "skynews.db",

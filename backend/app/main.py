@@ -64,6 +64,8 @@ def generate_brief() -> Brief:
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Brief generation failed: {exc}") from exc
 
     return save_brief(settings.db_path, brief)
 
