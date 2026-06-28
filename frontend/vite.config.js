@@ -13,5 +13,11 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 8008,
+    strictPort: true,
+    allowedHosts: ["news.skyzhou.top"]
   }
 });
